@@ -1,0 +1,50 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: open-source-project-analyzer
+    ports:
+      - "${PORT}:${PORT}"
+    environment:
+      ENV: docker
+      PORT: ${PORT}
+      POSTGRES_STRING_DOCKER: ${POSTGRES_STRING_DOCKER}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL}
+      GITHUB_BASE_URL: ${GITHUB_BASE_URL}
+      GITHUB_USER_AGENT: ${GITHUB_USER_AGENT}
+    depends_on:
+      postgres-pa:
+        condition: service_healthy
+  
+
+  postgres-pa:
+    image: postgres:18-alpine
+    container_name: postgres-pa
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      -  "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 7
+  
+  migrate-pa:
+    image: migrate/migrate
+    container_name: migrate-pa
+    command: ["-path", "./migrations", "-database", "${POSTGRES_STRING_DOCKER}", "up"]
+    volumes: 
+      - ./migrations:/migrations
+    depends_on:
+      postgres-pa:
+        condition: service_healthy
+  
+volumes:
+  postgres_data:
